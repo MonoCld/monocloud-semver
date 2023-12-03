@@ -17,5 +17,7 @@ export class VersionClassification {
     public changed: boolean,
     public major: number,
     public minor: number,
-    public patch: number) { }
+    public patch: number,
+    public preReleaseType: string | null,
+    public preReleaseBuild: number | null) { }
 }

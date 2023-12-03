@@ -8,18 +8,28 @@ export class DefaultTagFormatter implements TagFormatter {
   private tagPrefix: string;
   private namespace: string;
   private namespaceSeperator: string;
+  private seperator: string;
+  private buildSeperator: string;
+  private usePreReleases: boolean;
 
   constructor(config: ActionConfig) {
     this.namespace = config.namespace;
     this.tagPrefix = config.tagPrefix;
-    this.namespaceSeperator = '-'; // maybe make configurable in the future
+    this.namespaceSeperator = '/'; // maybe make configurable in the future
+    this.usePreReleases = config.usePreReleases;
+    this.seperator = '-';
+    this.buildSeperator = '.';
   }
 
   public Format(versionInfo: VersionInformation): string {
-    const result = `${this.tagPrefix}${versionInfo.major}.${versionInfo.minor}.${versionInfo.patch}`;
+    let result = `${this.tagPrefix}${versionInfo.major}.${versionInfo.minor}.${versionInfo.patch}`;
+
+    if (this.usePreReleases && versionInfo.preReleaseType) {
+      result = result + this.seperator + versionInfo.preReleaseType + this.buildSeperator + versionInfo.preReleaseBuild;
+    }
 
     if (!!this.namespace) {
-      return `${result}${this.namespaceSeperator}${this.namespace}`;
+      return `${this.namespace}${this.namespaceSeperator}${result}`;
     }
 
     return result;
@@ -28,16 +38,16 @@ export class DefaultTagFormatter implements TagFormatter {
   public GetPattern(): string {
 
     if (!!this.namespace) {
-      return `${this.tagPrefix}*[0-9].*[0-9].*[0-9]${this.namespaceSeperator}${this.namespace}`;
+      return `${this.namespace}${this.namespaceSeperator}${this.tagPrefix}*[0-9].*[0-9].*[0-9]`;
     }
 
     return `${this.tagPrefix}*[0-9].*[0-9].*[0-9]`;
   }
 
-  public Parse(tag: string): [major: number, minor: number, patch: number] {
+  public Parse(tag: string): [major: number, minor: number, patch: number, preReleaseType: string | null, preReleaseBuild: number | null] {
 
     if(tag === '') {
-      return [0, 0, 0];
+      return [0, 0, 0, null, null];
     }
 
     let tagParts = tag
@@ -49,10 +59,23 @@ export class DefaultTagFormatter implements TagFormatter {
       .replace('<--!PREFIX!-->', this.tagPrefix)
       .replace('<--!NAMESPACE!-->', this.namespace);
 
-    let versionValues = stripedTag
+    let preReleaseValues = stripedTag
       .substring(this.tagPrefix.length)
-      .slice(0, this.namespace === '' ? 999 : -(this.namespace.length + 1))
+      .split('-');
+
+    let versionValues = preReleaseValues[0]
       .split('.');
+
+    let preReleaseType = null;
+    let preReleaseBuild = null;
+
+    if (this.usePreReleases && preReleaseValues.length > 1) {
+      const match = preReleaseValues[1].split('.');
+      if (match.length > 1) {
+        preReleaseType = match[0]; 
+        preReleaseBuild = parseInt(match[1]);
+      }
+    }
 
     let major = parseInt(versionValues[0]);
     let minor = versionValues.length > 1 ? parseInt(versionValues[1]) : 0;
@@ -62,7 +85,7 @@ export class DefaultTagFormatter implements TagFormatter {
       throw `Invalid tag ${tag} (${versionValues})`;
     }
 
-    return [major, minor, patch];
+    return [major, minor, patch, preReleaseType, preReleaseBuild];
   };
 
   public IsValid(tag: string): boolean {
@@ -72,7 +95,15 @@ export class DefaultTagFormatter implements TagFormatter {
     const namespace = regexEscape(this.namespace);
 
     if (!!this.namespace) {
-      return new RegExp(`^${tagPrefix}[0-9]+\.[0-9]+\.[0-9]+${namespaceSeperator}${namespace}$`).test(tag);
+      if (this.usePreReleases) {
+        return new RegExp(`^${namespace}${namespaceSeperator}${tagPrefix}[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?$`).test(tag);
+      }
+
+      return new RegExp(`^${namespace}${namespaceSeperator}${tagPrefix}[0-9]+\.[0-9]+\.[0-9]+$`).test(tag);
+    }
+
+    if (this.usePreReleases) {
+      return new RegExp(`^${tagPrefix}[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?$`).test(tag);
     }
 
     return new RegExp(`^${tagPrefix}[0-9]+\.[0-9]+\.[0-9]+$`).test(tag);

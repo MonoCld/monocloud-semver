@@ -21,6 +21,8 @@ export class VersionInformation {
     public major: number,
     public minor: number,
     public patch: number,
+    public preReleaseType: string | null,
+    public preReleaseBuild: number | null,
     public increment: number,
     public type: VersionType,
     public commits: CommitInfo[],

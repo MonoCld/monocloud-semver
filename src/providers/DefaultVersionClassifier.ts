@@ -10,20 +10,30 @@ export class DefaultVersionClassifier implements VersionClassifier {
 
     protected majorPattern: (commit: CommitInfo) => boolean;
     protected minorPattern: (commit: CommitInfo) => boolean;
-    protected enablePrereleaseMode: boolean;
+    protected patchPattern: (commit: CommitInfo) => boolean;
+    protected releasePattern: (commit: CommitInfo) => boolean;
+    protected preMajorPattern: (commit: CommitInfo) => boolean;
+    protected preMinorPattern: (commit: CommitInfo) => boolean;
+    protected prePatchPattern: (commit: CommitInfo) => boolean;
+    protected usePreReleases: boolean;
 
     constructor(config: ActionConfig) {
         const searchBody = config.searchCommitBody;
-        this.majorPattern = this.parsePattern(config.majorPattern, config.majorFlags, searchBody);
-        this.minorPattern = this.parsePattern(config.minorPattern, config.minorFlags, searchBody);
-        this.enablePrereleaseMode = config.enablePrereleaseMode;
+        this.majorPattern = this.parsePattern(config.majorPattern, searchBody);
+        this.minorPattern = this.parsePattern(config.minorPattern, searchBody);
+        this.patchPattern = this.parsePattern(config.patchPattern, searchBody);
+        this.releasePattern = this.parsePattern(config.releasePattern, searchBody);
+        this.preMajorPattern = this.parsePattern(config.preMajorPattern, searchBody);
+        this.preMinorPattern = this.parsePattern(config.preMinorPattern, searchBody);
+        this.prePatchPattern = this.parsePattern(config.prePatchPattern, searchBody);
+        this.usePreReleases = config.usePreReleases;
     }
 
-    protected parsePattern(pattern: string, flags: string, searchBody: boolean): (pattern: CommitInfo) => boolean {
-        if (/^\/.+\/[i]*$/.test(pattern)) {
+    protected parsePattern(pattern: string, searchBody: boolean): (pattern: CommitInfo) => boolean {
+        if (/^\/.+\/[idgs]*$/.test(pattern)) {
             const regexEnd = pattern.lastIndexOf('/');
             const parsedFlags = pattern.slice(pattern.lastIndexOf('/') + 1);
-            const regex = new RegExp(pattern.slice(1, regexEnd), parsedFlags || flags);
+            const regex = new RegExp(pattern.slice(1, regexEnd), parsedFlags);
             return searchBody ?
                 (commit: CommitInfo) => regex.test(commit.subject) || regex.test(commit.body) :
                 (commit: CommitInfo) => regex.test(commit.subject);
@@ -35,31 +45,27 @@ export class DefaultVersionClassifier implements VersionClassifier {
         }
     }
 
-    protected getNextVersion(current: ReleaseInformation, type: VersionType): ({ major: number, minor: number, patch: number }) {
-
-        if (this.enablePrereleaseMode && current.major === 0) {
-            switch (type) {
-                case VersionType.Major:
-                    return { major: current.major, minor: current.minor + 1, patch: 0 };
-                case VersionType.Minor:
-                case VersionType.Patch:
-                    return { major: current.major, minor: current.minor, patch: current.patch + 1 };
-                case VersionType.None:
-                    return { major: current.major, minor: current.minor, patch: current.patch };
-                default:
-                    throw new Error(`Unknown change type: ${type}`);
-            }
-        }
-
+    protected getNextVersion(current: ReleaseInformation, type: VersionType): ({ major: number, minor: number, patch: number, preReleaseType: string | null, preReleaseBuild: number | null }) {
         switch (type) {
             case VersionType.Major:
-                return { major: current.major + 1, minor: 0, patch: 0 };
+                return { major: current.major + 1, minor: 0, patch: 0, preReleaseType: null, preReleaseBuild: null };
             case VersionType.Minor:
-                return { major: current.major, minor: current.minor + 1, patch: 0 };
+                return { major: current.major, minor: current.minor + 1, patch: 0, preReleaseType: null, preReleaseBuild: null };
             case VersionType.Patch:
-                return { major: current.major, minor: current.minor, patch: current.patch + 1 };
+                return { major: current.major, minor: current.minor, patch: current.patch + 1, preReleaseType: null, preReleaseBuild: null };
+            case VersionType.Release:
+                return { major: current.major, minor: current.minor, patch: current.patch, preReleaseType: null, preReleaseBuild: null };
+            case VersionType.PreMajor:
+                return { major: current.major + 1, minor: 0, patch: 0, preReleaseType: current.preReleaseType ?? 'pre', preReleaseBuild: 0 };
+            case VersionType.PreMinor:
+                return { major: current.major, minor: current.minor + 1, patch: 0, preReleaseType: current.preReleaseType ?? 'pre', preReleaseBuild: 0 };
+            case VersionType.PrePatch:
+                return { major: current.major, minor: current.minor, patch: current.patch + 1, preReleaseType: current.preReleaseType ?? 'pre', preReleaseBuild: 0 };
             case VersionType.None:
-                return { major: current.major, minor: current.minor, patch: current.patch };
+                if (!this.usePreReleases) {
+                    return { major: current.major, minor: current.minor, patch: current.patch, preReleaseBuild: null, preReleaseType: null };
+                }
+                return { major: current.major, minor: current.minor, patch: current.preReleaseType ? current.patch : current.patch + 1, preReleaseType: current.preReleaseType ?? 'pre', preReleaseBuild: current.preReleaseBuild != null ? current.preReleaseBuild + 1 : 0 };
             default:
                 throw new Error(`Unknown change type: ${type}`);
         }
@@ -71,6 +77,7 @@ export class DefaultVersionClassifier implements VersionClassifier {
         }
 
         const commits = commitsSet.commits.reverse();
+
         let index = 1;
         for (let commit of commits) {
             if (this.majorPattern(commit)) {
@@ -87,14 +94,54 @@ export class DefaultVersionClassifier implements VersionClassifier {
             index++;
         }
 
-        return { type: VersionType.Patch, increment: commitsSet.commits.length - 1, changed: true };
+        index = 1;
+        for (let commit of commits) {
+            if (this.patchPattern(commit)) {
+                return { type: VersionType.Patch, increment: commits.length - index, changed: commitsSet.changed };
+            }
+            index++;
+        }
+
+        index = 1;
+        for (let commit of commits) {
+            if (this.releasePattern(commit)) {
+                return { type: VersionType.Release, increment: commits.length - index, changed: commitsSet.changed };
+            }
+            index++;
+        }
+
+        index = 1;
+        for (let commit of commits) {
+            if (this.preMajorPattern(commit)) {
+                return { type: VersionType.PreMajor, increment: commits.length - index, changed: commitsSet.changed };
+            }
+            index++;
+        }
+
+        index = 1;
+        for (let commit of commits) {
+            if (this.preMinorPattern(commit)) {
+                return { type: VersionType.PreMinor, increment: commits.length - index, changed: commitsSet.changed };
+            }
+            index++;
+        }
+
+        index = 1;
+        for (let commit of commits) {
+            if (this.prePatchPattern(commit)) {
+                return { type: VersionType.PrePatch, increment: commits.length - index, changed: commitsSet.changed };
+            }
+            index++;
+        }
+
+        return { type: this.usePreReleases ? VersionType.None : VersionType.Patch, increment: commitsSet.commits.length - 1, changed: true };
     }
 
     public async ClassifyAsync(lastRelease: ReleaseInformation, commitSet: CommitInfoSet): Promise<VersionClassification> {
 
         const { type, increment, changed } = this.resolveCommitType(commitSet);
 
-        const { major, minor, patch } = this.getNextVersion(lastRelease, type);
+        const { major, minor, patch, preReleaseBuild, preReleaseType } = this.getNextVersion(lastRelease, type);
 
         if (lastRelease.currentPatch !== null) {
             // If the current commit is tagged, we must use that version. Here we check if the version we have resolved from the
@@ -106,12 +153,12 @@ export class DefaultVersionClassifier implements VersionClassifier {
             // - commit 3 was tagged v2.0.0 - v2.0.0+0
             // - commit 4 - v2.0.1+0
 
-            const versionsMatch = lastRelease.currentMajor === major && lastRelease.currentMinor === minor && lastRelease.currentPatch === patch;
+            const versionsMatch = lastRelease.currentMajor === major && lastRelease.currentMinor === minor && lastRelease.currentPatch === patch && lastRelease.currentPreReleaseBuild == preReleaseBuild && lastRelease.currentPreReleaseType == preReleaseType;
             const currentIncrement = versionsMatch ? increment : 0;
-            return new VersionClassification(VersionType.None, currentIncrement, false, <number>lastRelease.currentMajor, <number>lastRelease.currentMinor, <number>lastRelease.currentPatch);
+            return new VersionClassification(VersionType.None, currentIncrement, false, <number>lastRelease.currentMajor, <number>lastRelease.currentMinor, <number>lastRelease.currentPatch, <string | null>lastRelease.currentPreReleaseType, <number | null>lastRelease.currentPreReleaseBuild);
         }
 
 
-        return new VersionClassification(type, increment, changed, major, minor, patch);
+        return new VersionClassification(type, increment, changed, major, minor, patch, preReleaseType, preReleaseBuild);
     }
 }

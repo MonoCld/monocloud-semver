@@ -15,9 +15,13 @@ export class ReleaseInformation {
     public major: number,
     public minor: number,
     public patch: number,
+    public preReleaseType: string | null,
+    public preReleaseBuild: number | null,
     public hash: string,
     public currentMajor: number | null,
     public currentMinor: number | null,
     public currentPatch: number | null,
+    public currentPreReleaseType: string | null,
+    public currentPreReleaseBuild: number | null,
     public isTagged: boolean,) { }
 }

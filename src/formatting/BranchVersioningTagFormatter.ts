@@ -93,12 +93,12 @@ export class BranchVersioningTagFormatter extends DefaultTagFormatter {
         return true;
     }
 
-    override Parse(tag: string): [major: number, minor: number, patch: number] {
+    public Parse(tag: string): [major: number, minor: number, patch: number, preReleaseType: string | null, preReleaseBuild: number | null] {
         if (!this.onVersionBranch) {
             return super.Parse(tag);
         }
 
         const parsed = super.Parse(tag);
-        return [this.major, this.minor || parsed[1], parsed[2]];
+        return [this.major, this.minor || parsed[1], parsed[2], parsed[3], parsed[4]];
     }
 }

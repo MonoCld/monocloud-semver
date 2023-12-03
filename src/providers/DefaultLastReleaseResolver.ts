@@ -2,19 +2,9 @@ import { cmd } from "../CommandRunner";
 import { TagFormatter } from "../formatting/TagFormatter";
 import { LastReleaseResolver } from "./LastReleaseResolver";
 import { ReleaseInformation } from "./ReleaseInformation";
-import { ActionConfig } from "../ActionConfig";
 import * as core from '@actions/core';
 
 export class DefaultLastReleaseResolver implements LastReleaseResolver {
-
-    private changePath: string;
-    private useBranches: boolean;
-
-    constructor(config: ActionConfig) {
-        this.changePath = config.changePath;
-        this.useBranches = config.useBranches;
-    }
-
     async ResolveAsync(current: string, tagFormatter: TagFormatter): Promise<ReleaseInformation> {
         const releasePattern = tagFormatter.GetPattern();
 
@@ -23,15 +13,16 @@ export class DefaultLastReleaseResolver implements LastReleaseResolver {
         )).trim();
 
         currentTag = tagFormatter.IsValid(currentTag) ? currentTag : '';
+
         const isTagged = currentTag !== '';
 
-        const [currentMajor, currentMinor, currentPatch] = !!currentTag ? tagFormatter.Parse(currentTag) : [null, null, null];
+        const [currentMajor, currentMinor, currentPatch, currentPreReleaseType, currentPreReleaseBuild] = !!currentTag ? tagFormatter.Parse(currentTag) : [null, null, null, null, null];
 
         let tagsCount = 0;
 
         let tag = '';
         try {
-            const refPrefixPattern = this.useBranches ? 'refs/heads/' : 'refs/tags/';
+            const refPrefixPattern = 'refs/tags/';
             if (!!currentTag) {
                 // If we already have the current branch tagged, we are checking for the previous one
                 // so that we will have an accurate increment (assuming the new tag is the expected one)
@@ -68,15 +59,15 @@ export class DefaultLastReleaseResolver implements LastReleaseResolver {
                     core.warning('No tags are present for this repository. If this is unexpected, check to ensure that tags have been pulled from the remote.');
                 }
             }
-            const [major, minor, patch] = tagFormatter.Parse('');
+            const [major, minor, patch, preReleaseType, preReleaseBuild] = tagFormatter.Parse('');
             // no release tags yet, use the initial commit as the root
-            return new ReleaseInformation(major, minor, patch, '', currentMajor, currentMinor, currentPatch, isTagged);
+            return new ReleaseInformation(major, minor, patch, preReleaseType, preReleaseBuild, '', currentMajor, currentMinor, currentPatch, currentPreReleaseType, currentPreReleaseBuild, isTagged);
         }
 
         // parse the version tag
-        const [major, minor, patch] = tagFormatter.Parse(tag);
+        const [major, minor, patch, preReleaseType, preReleaseBuild] = tagFormatter.Parse(tag);
         const root = await cmd('git', `merge-base`, tag, current);
-        return new ReleaseInformation(major, minor, patch, root.trim(), currentMajor, currentMinor, currentPatch, isTagged);
+        return new ReleaseInformation(major, minor, patch, preReleaseType, preReleaseBuild, root.trim(), currentMajor, currentMinor, currentPatch, currentPreReleaseType, currentPreReleaseBuild, isTagged);
     }
 
 }

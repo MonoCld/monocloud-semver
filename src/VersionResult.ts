@@ -15,7 +15,7 @@ export class VersionResult {
    * @param changed - True if the version was changed, otherwise false
    * @param isTagged - True if the commit had a tag that matched the `versionTag` format
    * @param authors - Authors formatted according to the format mode (e.g. JSON, CSV, YAML, etc.)
-   * @param currentCommit - The current commit hash 
+   * @param currentCommit - The current commit hash
    * @param previousCommit - The previous commit hash
    * @param previousVersion - The previous version
    * @param debugOutput - Diagnostic information, if debug is enabled
@@ -24,6 +24,8 @@ export class VersionResult {
     public major: number,
     public minor: number,
     public patch: number,
+    public preReleaseType: string | null,
+    public preReleaseBuild: number | null,
     public increment: number,
     public versionType: VersionType,
     public formattedVersion: string,
@@ -34,5 +36,6 @@ export class VersionResult {
     public currentCommit: string,
     public previousCommit: string,
     public previousVersion: string,
-    public debugOutput: string) { }
+    public debugOutput: string,
+  ) {}
 }
