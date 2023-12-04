@@ -1,6 +1,6 @@
 import * as github from "@actions/github";
 import { Octokit } from "octokit";
-import micromatch from 'micromatch';
+import micromatch from "micromatch";
 import { CsvUserFormatter } from "./formatting/CsvUserFormatter";
 import { DefaultTagFormatter } from "./formatting/DefaultTagFormatter";
 import { DefaultVersionFormatter } from "./formatting/DefaultVersionFormatter";
@@ -73,9 +73,12 @@ export class ConfigurationProvider {
       return;
     }
 
-    const changePath = this.config.changePath.trim().split(' ').filter(x => x !== '');
+    const changePath = this.config.changePath
+      .trim()
+      .split(" ")
+      .filter((x) => x !== "");
 
-    if( changePath.length === 0 ) {
+    if (changePath.length === 0) {
       return;
     }
 
@@ -86,9 +89,12 @@ export class ConfigurationProvider {
       ...github.context.repo,
     });
 
-    const allChangedFiles = response.data.files?.map(x => x.filename) ?? [];
+    const allChangedFiles = response.data.files?.map((x) => x.filename) ?? [];
 
-    const matched = micromatch(allChangedFiles, this.config.changePath.split(' ').filter(x => x !== ''));
+    const matched = micromatch(
+      allChangedFiles,
+      this.config.changePath.split(" ").filter((x) => x !== ""),
+    );
 
     return matched;
   }

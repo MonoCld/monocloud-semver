@@ -18,6 +18,7 @@ export class VersionResult {
    * @param currentCommit - The current commit hash
    * @param previousCommit - The previous commit hash
    * @param previousVersion - The previous version
+   * @param changedFiles - The list of changed files according to the changePath param
    * @param debugOutput - Diagnostic information, if debug is enabled
    */
   constructor(
@@ -36,6 +37,7 @@ export class VersionResult {
     public currentCommit: string,
     public previousCommit: string,
     public previousVersion: string,
+    public changedFiles: string | undefined,
     public debugOutput: string,
   ) {}
 }

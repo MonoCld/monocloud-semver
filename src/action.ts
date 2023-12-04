@@ -18,6 +18,7 @@ export async function runAction(
     await currentCommitResolver.ResolveBranchNameAsync(),
   );
   const userFormatter = configurationProvider.GetUserFormatter();
+  const changedfiles = await configurationProvider.GetChangedFiles();
   const seperator = "-";
   const buildSeperator = ".";
 
@@ -53,6 +54,7 @@ export async function runAction(
       "",
       "",
       tagFormatter.Parse(tagFormatter.Format(versionInfo)).join("."),
+      changedfiles?.join(" "),
       debugManager.getDebugOutput(true),
     );
   }
@@ -137,6 +139,7 @@ export async function runAction(
     currentCommit,
     lastRelease.hash,
     lastReleaseVersion,
+    changedfiles?.join(" "),
     debugManager.getDebugOutput(),
   );
 }

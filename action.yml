@@ -105,6 +105,8 @@ outputs:
     description: "Indicates the previous version"
   current_commit:
     description: "The current commit hash"
+  changed_files:
+    description: "The list of changed files according to the changePath param"
   debug_output:
     description: "Diagnostic information, if debug is enabled"
   
