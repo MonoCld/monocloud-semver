@@ -12,6 +12,10 @@ inputs:
     description: "The prefix to use to identify tags"
     required: false
     default: "v"
+  pat:
+    description: "The personal access token to access the repo"
+    required: false
+    default: ""
   version_from_branch:
     description: If true, the branch will be used to select the maximum version
     required: false

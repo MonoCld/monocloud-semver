@@ -4,6 +4,8 @@ export class ActionConfig {
   public branch: string = "HEAD";
   /** The prefix to use to identify tags */
   public tagPrefix: string = "v";
+  /** The personal access token to access the repo */
+  public personalAccessToken: string = "";
   /** If true, the branch will be used to select the maximum version. */
   public versionFromBranch: string | boolean = false;
   /** If true, releases will be marked as pre-release till released */

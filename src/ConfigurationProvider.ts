@@ -1,3 +1,6 @@
+import * as github from "@actions/github";
+import { Octokit } from "octokit";
+import micromatch from 'micromatch';
 import { CsvUserFormatter } from "./formatting/CsvUserFormatter";
 import { DefaultTagFormatter } from "./formatting/DefaultTagFormatter";
 import { DefaultVersionFormatter } from "./formatting/DefaultVersionFormatter";
@@ -63,5 +66,30 @@ export class ConfigurationProvider {
           `Unknown user format type: ${this.config.userFormatType}, supported types: json, csv`,
         );
     }
+  }
+
+  public async GetChangedFiles(): Promise<string[] | undefined> {
+    if (github.context.eventName != "push") {
+      return;
+    }
+
+    const changePath = this.config.changePath.trim().split(' ').filter(x => x !== '');
+
+    if( changePath.length === 0 ) {
+      return;
+    }
+
+    const octokit = new Octokit({ auth: this.config.personalAccessToken });
+    const response = await octokit.rest.repos.compareCommits({
+      base: github.context.payload.before as string,
+      head: github.context.payload.after as string,
+      ...github.context.repo,
+    });
+
+    const allChangedFiles = response.data.files?.map(x => x.filename) ?? [];
+
+    const matched = micromatch(allChangedFiles, this.config.changePath.split(' ').filter(x => x !== ''));
+
+    return matched;
   }
 }

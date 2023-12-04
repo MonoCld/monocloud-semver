@@ -82,6 +82,7 @@ export async function run() {
   const config: ActionConfig = {
     branch: core.getInput("branch"),
     tagPrefix: core.getInput("tag_prefix"),
+    personalAccessToken: core.getInput("pat"),
     usePreReleases: toBool(core.getInput("use_pre_releases")),
     majorPattern: core.getInput("major_pattern"),
     minorPattern: core.getInput("minor_pattern"),
